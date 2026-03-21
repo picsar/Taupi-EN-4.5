@@ -1,3 +1,23 @@
+# Taupi-EN-4.5
+
+A big shoutout to **HolzaChr** and **BoeserBob** for the brilliant original idea — you folks rock! 🎉
+
+This fork brings the following changes and additions:
+
+- **Full English translation** — all comments and variable names have been translated so the script is accessible to a wider audience beyond German speakers
+- **Visual error feedback** — if something goes wrong, the Shelly Plug S blinks red so you know immediately. Current error conditions:
+  - `Sensor connection lost for too long` — fan is turned OFF as a safety measure
+  - `Not all sensor values available` — control cycle is skipped until data is reliable again
+- **Multi-fan support** — you can now link additional ("neighboring") Shelly Plug S devices that switch on and off in sync with the primary one, perfect for setups where you need airflow through multiple vents or rooms (cross-ventilation / draft mode)
+
+Feel free to open issues or PRs — contributions welcome! 🌬️
+
+## Material List
+- Shelly Plug S, more if needed
+- 2x Shelly BLU HT (need to be connected to the Plug as BLU-devices)
+- Ventilator 220V with Plug (e.g. [150 mm Exhaust Fan, 525 m³/h — Whisper-Quiet with Built-in Backdraft Damper](https://www.amazon.de/gp/product/B0DQ83BFJ5/)),
+  more of needed
+
 # Taupi-4.0 
  :-) Vereinfachte Version powered by HolzaChr -> alles in einen Script gepackt und ohne KVS! :-)
 https://github.com/holzachr
