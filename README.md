@@ -238,7 +238,7 @@ Each reading is published to:
 
 Example:
 ```
-shellyplugsg3-e4b063e3c3cc/7cc6b671d9ae/status
+shellyplugsg3-aabbccddeeff/7cc6b671d9ae/status
 ```
 
 Payload (JSON):
