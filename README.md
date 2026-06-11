@@ -1,77 +1,231 @@
-# Taupi-EN-4.5
+# Taupi-EN 4.5 — Dew Point Ventilation Controller for Shelly Plug S/G3
 
-A big shoutout to **HolzaChr** and **BoeserBob** for the brilliant original idea — you folks rock! 🎉
+Turns a **Shelly Plug S or G3** into a smart, dew point-based ventilation controller.
+A connected fan is switched on and off automatically based on whether ventilating actually makes the room drier — or would make it wetter.
 
-This fork brings the following changes and additions:
+> **Original idea:** [HolzaChr](https://github.com/holzachr) & [BoeserBob](https://github.com/BoeserBob/Taupi-4.0) — brilliant work, folks! 🎉  
+> **This fork:** English translation, memory optimisation, virtual status display, quiet hours, battery warnings, crash fixes — refactored with the help of [Claude](https://claude.ai) (Anthropic).
 
-- **Full English translation** — all comments and variable names have been translated so the script is accessible to a wider audience beyond German speakers
-- **Visual error feedback** — if something goes wrong, the Shelly Plug S blinks red so you know immediately. Current error conditions:
-  - `Sensor connection lost for too long` — fan is turned OFF as a safety measure
-  - `Not all sensor values available` — control cycle is skipped until data is reliable again
-- **Multi-fan support** — you can now link additional ("neighboring") Shelly Plug S devices that switch on and off in sync with the primary one, perfect for setups where you need airflow through multiple vents or rooms (cross-ventilation / draft mode)
+---
 
-Feel free to open issues or PRs — contributions welcome! 🌬️
+## How it works
 
-## Material List
-- Shelly Plug S, more if needed
-- 2x Shelly BLU HT (need to be connected to the Plug as BLU-devices)
-- Ventilator 220V with Plug (e.g. [150 mm Exhaust Fan, 525 m³/h — Whisper-Quiet with Built-in Backdraft Damper](https://www.amazon.de/gp/product/B0DQ83BFJ5/)),
-  more of needed
+The fan switches **ON** when all three conditions are met at the same time:
 
-# Taupi-4.0 
- :-) Vereinfachte Version powered by HolzaChr -> alles in einen Script gepackt und ohne KVS! :-)
-https://github.com/holzachr
+```
+Indoor dew point  >  Outdoor dew point + threshold   →  ventilating removes moisture
+Indoor temperature  >  minimum                        →  no frost risk
+Indoor humidity     >  minimum                        →  sensor reading is plausible
+```
 
-Eine Taupukt-gesteuerte Zwangsbelüftung mit einem Shelly Plug S Plus als Schaltsteckdose und BLE-Gateway, sowie zwei Shelly BLU HT Sensoren.
+The dew point is calculated from temperature and relative humidity using the **Magnus formula** (with separate coefficients for T ≥ 0 °C and T < 0 °C). A lower dew point means drier air. If the outdoor dew point is lower than indoors, ventilating will dry the room out.
 
-Getestet mit:
-- Shelly Plus Plug S, Gerätemodell SNPL-00112EU, Firmware-Version 20250730-063227/1.7.0-gbe7545d
-- Shelly BLU HT, Gerätemodell SBHT-003C, Firmware-Version 20250818-045415/v1.0.23@27f3ef9b
+---
 
-Inspiriert durch den phänomenalen Taupunktlüfter aus der Zeitschrift MAKE 1/2022 ....
-- geplagt von grässlichen Versuchen mit dem Arduino (Taupi-1.0: grrr, kein WLAN)
-- gequält von lausigen DHT22 Sensoren an einem selbst programmierten ESP8266 (Taupi-2.0: Kotz, DHT22 und EMV...)
-- geflasht von ESP easy, Rules und den BME280 (Taupi-3.0: laaangweilig, damit war der Taupunktlüfter an einem Nachmittag fertig).
-  
-... habe ich als Taupi-4.0 eine idiotensichere Variante ohne Löten, ohne Kabel zu den Sensoren, ohne 230 V Basteleien zusammengestellt.
+## Hardware
 
-Warum auf einer Shelly Plug und nicht im coolen HomeAssistant oder IOBroker oder sowas? Das ist doch Steinzeit.
+| Component | Notes |
+|---|---|
+| **Shelly Plug S or G3** | The controller — runs the script, switches the relay, receives BLE |
+| **BLE sensor (indoor)** | e.g. Shelly BLU H&T — any BTHome v2 compatible sensor works |
+| **BLE sensor (outdoor)** | Same type, mounted outside |
+| **Fan 230 V** *(optional)* | Plugged into the Shelly relay output |
 
-- Damit es als Insel mit minimalem Aufwand fernab von WLANs und Routern laufen kann. 
-- Günstig, kompakt, einfach zu administrieren.
-- Und weils geht.
+**Requirements on the device:**
+- Firmware **1.x or newer** (tested with 1.7.5)
+- Bluetooth enabled: `Settings → Bluetooth → Enable`
+- NTP configured (only required for quiet hours): `Settings → Time`
+- No second script occupying the BLE scanner simultaneously
 
-Was ist die Aufgabe des Taupunktlüfters?
+---
 
-- Der Taupunktlüfter soll die Luftfeuchtigkeit in einem Raum (meist Keller) durch gesteuerte Belüftung möglichst weit absenken.
-- Den Begriff Taupunkt erkläre ich nicht, die Kollegen von der MAKE erklären das Prinzip perfekt.
+## Installation
 
-Wie macht der Lüfter das? 
+1. Set up the Shelly Plug on your local network.
+2. Enable Bluetooth: `Settings → Bluetooth → Enable`.
+3. Configure NTP: `Settings → Time` (needed for quiet hours).
+4. In the Shelly web interface go to **Scripts → Add Script**.
+5. Paste the contents of `taupi-refactored.js`.
+6. Adjust the configuration at the top of the script (see below).
+7. Save and start the script. Enable **"Run on startup"**.
 
-- Der Taupunktlüfter lüftet nur dann, wenn die Außenluft (deutlich) weniger Wasser als die Innenluft enthält.
+### Virtual status display (optional)
 
-Woraus besteht das System?
+The script can write live sensor readings and fan state to a virtual text component visible in the Shelly app. Because `Shelly.AddComponent` is not callable from scripts, this component must be created **once** via HTTP before starting the script:
 
-  - zwei kabellose Temperatur und Feuchtigkeitssensoren Shelly BLU HT (einer für innen, einer für außen)
-  - einer Shelly Plug S Plus (schaltet den Lüfter, ist die Plattform für die Skripte)
-  - einem Lüfter (230 V Lüfter mit Stecker, z.B. 150 mm, 15 W)
-  - ein Skript, das auf der Shelly Plug S installiert werden muss
+```bash
+curl -X POST http://<shelly-ip>/rpc/Shelly.AddComponent \
+     -d '{"type":"text","id":200,"config":{"name":"Taupi Status"}}'
+```
 
-# Installationsvideo:
- 
-https://youtu.be/OwO5WBgde4s?si=qNCkJwFlZNB12Jp6
+After that the component appears under **Components → Taupi Status** in the Shelly app and is updated every 10 seconds. Set `VIRTUAL_TEXT_ID = -1` in the script to disable it.
 
-Und so viel bringts -> Short:
-https://youtube.com/shorts/eaow63bAOWc
+---
 
-# Installationsanleitung Kurzversion
+## Configuration
 
-- Shelly Plug einrichten
-- BT-Sensoren mit Shelly Plug koppeln.
-- Firmwareupdates durchführen. 
-- Adressen der BT-Sensoren raussuchen und im Kopfteil von Taupi-4.0.js anpassen.
-- Skript installieren (Taupi-4.0.js).
-- Skript auf automatischen Start stellen.
+All settings are at the top of the script, above the `End of Configuration` line.
 
-Anregungen und Korrekturen gerne, das Projekt wird sicher wachsen :-)
+### Sensors
 
+```js
+var sensor_outside = "xx:xx:xx:xx:xx:xx"; // BLE MAC address of outdoor sensor
+var sensor_inside  = "xx:xx:xx:xx:xx:xx"; // BLE MAC address of indoor sensor
+```
+
+Find the MAC address in the Shelly app or web interface under `Bluetooth → Devices`.
+
+### Telegram notifications
+
+```js
+var ENABLE_TELEGRAM = false;        // set to true to enable
+let BOT_TOKEN = "YOUR_BOT_TOKEN";  // from @BotFather
+let CHAT_ID   = "YOUR_CHAT_ID";   // your Telegram chat ID
+```
+
+Notifications are sent when:
+- the fan switches on or off (with reason, dew points, temperature, humidity)
+- a sensor timeout occurs
+- a battery drops below `battery_warning_level`
+
+Telegram messages are intentionally delayed to the next timer cycle (~10 s after the triggering event) to avoid concurrent Shelly call crashes.
+
+### Additional fans (optional)
+
+```js
+var fan_plug_ips = ["192.168.1.100"]; // IPs of additional Shelly Plug S devices
+var fan_plug_ips = [];                // empty = disabled
+```
+
+Additional Shelly Plug S devices that switch in sync with the primary relay. Controlled via HTTP RPC and synced to the main relay state on startup.
+
+### Switching parameters
+
+| Variable | Default | Unit | Description |
+|---|---|---|---|
+| `dewpoint_threshold` | `2` | °C | Minimum dew point difference (indoor − outdoor) to switch ON |
+| `min_temperature` | `5` | °C | Fan stays OFF if indoor temperature is below this |
+| `min_humidity` | `40` | % | Fan stays OFF if indoor humidity is below this |
+| `check_interval` | `10` | s | How often switching conditions are evaluated |
+| `battery_warning_level` | `20` | % | LED turns orange when a sensor drops below this level |
+| `connection_timeout` | `600` | s | Maximum sensor data age before a timeout error is raised |
+| `hysteresis` | `300` | s | Minimum time between two state changes (prevents rapid toggling) |
+| `VIRTUAL_TEXT_ID` | `200` | — | ID of the virtual text component (`-1` = disabled) |
+
+### Quiet hours
+
+```js
+var quiet_hours_start = 20; // fan forced OFF from 20:00
+var quiet_hours_end   = 7;  // fan released again at 07:00
+```
+
+- Times are whole hours (0–23) in local device time (requires NTP).
+- Spanning midnight is supported: `start=22, end=6` means 22:00–06:00.
+- Disable: set `quiet_hours_start === quiet_hours_end` (e.g. both `0`).
+- Without NTP sync, quiet hours are skipped — the fan is not blocked.
+
+### Debug logging
+
+```js
+var DEBUG = false; // true = verbose logging + free RAM output every 10 s
+```
+
+Leave `false` in normal operation — `true` causes string allocations every 10 seconds and prints free RAM:
+
+```
+RAM: 54000/258312 bytes free
+```
+
+> **Note:** The RAM value shows total system RAM, not the mJS heap. The mJS heap is significantly smaller (~15–25 KB) and is managed separately.
+
+---
+
+## LED colours
+
+| LED | Meaning |
+|---|---|
+| 🟢 Green (solid) | Fan OFF — all good |
+| 🔵 Blue (solid) | Fan ON — actively ventilating |
+| 🟠 Orange (solid) | Battery warning — one or both sensors below threshold |
+| 🔴 Red (solid) | Error — no sensor data yet (waiting for first BLE packet) |
+| 🟣 Violet (solid) | Error — sensor timeout (connection lost) |
+
+Error and warning LEDs are solid (not blinking). Each blink tick would fire a `PLUGS_UI.SetConfig` call every 500 ms — under a sustained error this drains the mJS heap and crashes the device.
+
+---
+
+## Timing of a switch event
+
+To avoid overloading the mJS runtime with simultaneous Shelly calls, actions after a switch event are staggered:
+
+```
+T +  0 ms   switchFans()         →  Switch.Set + HTTP.GET (extra fans)
+T +500 ms   LED timer            →  PLUGS_UI.SetConfig
+T + 10 s    next cycle           →  sendTelegram (HTTP.POST)
+T + 11 s    updateVirtualStatus  →  Text.Set
+```
+
+---
+
+## Sensor failure behaviour
+
+If a BLE sensor stops sending data:
+
+1. **Packets without temperature/humidity** (e.g. battery-only updates) are detected and do not overwrite the last valid readings.
+2. **Complete connection loss:** after `connection_timeout` seconds without a packet, the script enters error state.
+3. In error state: LED turns violet, one Telegram message is sent, **no further switching**, no further Telegram messages.
+4. When the sensor comes back: LED returns to normal colour, operation resumes.
+
+---
+
+## Restart behaviour
+
+On startup the script reads the current relay state (`switch:0`) and sets `current_status` accordingly — no unnecessary switch event is triggered after a restart. Additional fans are synced to the main relay state on startup.
+
+---
+
+## Troubleshooting
+
+**LED solid red after startup**  
+→ No BLE packets received yet. Is the sensor in range? Is Bluetooth enabled on the Shelly?
+
+**LED solid violet**  
+→ Sensor connection lost (no packet for `connection_timeout` seconds). Check battery, reduce distance, check if another Shelly script is occupying the BLE scanner.
+
+**Fan doesn't switch even though conditions are met**  
+→ Hysteresis active. `hysteresis` seconds must pass since the last state change. Check the log: `[DEBUG] Hysteresis: want ON but holding for Xs more`.
+
+**Quiet hours not working**  
+→ Check NTP: Shelly web interface → System → Time. Without a system time, quiet hours are skipped.
+
+**Telegram messages arrive with a delay**  
+→ This is by design — Telegram is deferred to the next timer cycle (~10 s) to avoid concurrent call crashes.
+
+**Script ran out of memory**  
+→ Set `DEBUG = false`. Check whether a second script is running simultaneously (e.g. Home Assistant BLE proxy) — move it to a separate device.
+
+**Shelly Plug goes offline and needs a physical restart**  
+→ Two possible causes:
+1. **Software:** `PLUGS_UI.SetConfig` fired simultaneously with `Switch.Set` — fixed by the 500 ms LED delay in this version.
+2. **Hardware:** Motor inrush current causes a brownout — test without a load plugged in. If the Shelly crashes even without load, it may be a firmware bug (observed on 1.7.5).
+
+**`NaN` in dew point or `undefined` in sensor values**  
+→ The sensor sent a packet without temperature/humidity. Since the fix in `checkBlu()`, such packets are ignored and the last valid values are retained.
+
+---
+
+## Files
+
+| File | Contents |
+|---|---|
+| `taupi-refactored.js` | Main script — dew point ventilation controller |
+| `mqtt-ble-blu-ht-forwarder.js` | Companion script — forwards BLU H&T readings via MQTT |
+| `README.md` | This documentation |
+
+---
+
+## License & Credits
+
+Original concept and script: **[HolzaChr](https://github.com/holzachr)** and **[BoeserBob](https://github.com/BoeserBob/Taupi-4.0)**.  
+BLE decoder based on [shelly-script-examples](https://github.com/ALLTERCO/shelly-script-examples/blob/main/ble-shelly-blu.js) © 2024 Shelly Europe, licensed under Apache 2.0.  
+This fork refactored and documented with the help of **[Claude](https://claude.ai)** (Anthropic).
