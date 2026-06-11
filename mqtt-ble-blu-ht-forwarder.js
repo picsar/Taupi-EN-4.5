@@ -13,8 +13,8 @@
 
 var DEBUG = false;
 
-var sensor = "7c:c6:b6:71:d9:ae";
-var sensor_inside = "7c:c6:b6:80:3c:4b";
+var sensor        = "xx:xx:xx:xx:xx:xx"; // BLE MAC address of first sensor
+var sensor_inside = "xx:xx:xx:xx:xx:xx"; // BLE MAC address of second sensor
 
 const BTHOME_SVC_ID_STR = "fcd2";
 

@@ -214,6 +214,47 @@ On startup the script reads the current relay state (`switch:0`) and sets `curre
 
 ---
 
+## MQTT BLU Forwarder (bonus script)
+
+`mqtt-ble-blu-ht-forwarder.js` is a standalone companion script that can run on **any Shelly Plug** (independently of the ventilation controller). It listens for BLE advertisements from up to two Shelly BLU H&T sensors and forwards the readings to your MQTT broker — useful for integrating the sensors into Home Assistant, Node-RED, or any other smart home platform.
+
+**Requirements:**
+- MQTT enabled and configured on the Shelly: `Settings → MQTT`
+- Bluetooth enabled: `Settings → Bluetooth → Enable`
+
+**Configuration** — edit the two MAC addresses at the top of the script:
+
+```js
+var sensor         = "xx:xx:xx:xx:xx:xx"; // first sensor
+var sensor_inside  = "xx:xx:xx:xx:xx:xx"; // second sensor (optional)
+```
+
+**MQTT topic and payload:**
+
+Each reading is published to:
+```
+<shelly-device-id>/<sensor-mac-without-colons>/status
+```
+
+Example:
+```
+shellyplugsg3-e4b063e3c3cc/7cc6b671d9ae/status
+```
+
+Payload (JSON):
+```json
+{
+  "temperature": 20.5,
+  "humidity": 65.0,
+  "dewpoint": 13.8,
+  "battery": 85
+}
+```
+
+Duplicate BLE advertisements are filtered automatically via the BTHome packet ID.
+
+---
+
 ## Files
 
 | File | Contents |
