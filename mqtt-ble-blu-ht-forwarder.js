@@ -196,7 +196,9 @@ function BLEScanCallback(event, result) {
 function initBLE() {
   const BLEConfig = Shelly.getComponentConfig("ble");
 
-  if (!BLEConfig.enable) {
+  // Firmware 2.0.0 removed the global enable flag — BLE now auto-activates.
+  // Only bail out if it is explicitly false (firmware 1.x with BLE disabled).
+  if (BLEConfig.enable === false) {
     log("Error: Bluetooth is not enabled — please enable it in settings");
     return;
   }
