@@ -146,6 +146,7 @@ function updateVirtualStatus() {
   var dlt = (typeof dewpoint_inside !== "undefined" && typeof dewpoint_outside !== "undefined")
     ? round1(dewpoint_inside - dewpoint_outside) + "K" : "?";
   Shelly.call("Text.Set", { id: VIRTUAL_TEXT_ID, value:
+    (sys && sys.time ? sys.time + " " : "") +
     "Fan: " + current_status.toUpperCase() + " | dDp: " + dlt + "\n" +
     " | In:  " + (typeof temp_inside    !== "undefined" ? temp_inside    + "°C" : "?") +
     " "     + (typeof humidity_inside  !== "undefined" ? humidity_inside  + "%" : "?") +
