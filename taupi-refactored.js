@@ -71,6 +71,7 @@ var hysteresis_elapsed = hysteresis; // pre-expired so the first cycle can switc
 var in_error_state = false;
 var _tel_pending = null;        // deferred Telegram message — sent on next timer cycle
 var _battery_warned = false;   // true once low-battery warning has been sent; reset when battery recovers
+var _battery_low_count = 0;   // consecutive cycles with low battery; warning only fires after 2+
 
 var DEBUG = false;
 
@@ -277,15 +278,18 @@ function controlFan() {
   }
 
   // Battery warning overrides LED color (checked last so it's always visible).
-  // Only fires once per low-battery event; resets when both batteries recover.
+  // Requires 2 consecutive low readings before warning — filters single-packet glitches
+  // (voltage sag during BLE transmission can cause one spurious low reading).
   if (battery_inside < battery_warning_level || battery_outside < battery_warning_level) {
-    if (!_battery_warned) {
+    _battery_low_count++;
+    if (_battery_low_count >= 2 && !_battery_warned) {
       print("[WARN] Low battery — indoor: " + battery_inside + "%, outdoor: " + battery_outside + "%");
       _tel_pending = "[WARN] Low battery — indoor: " + battery_inside + "%, outdoor: " + battery_outside + "%";
       _battery_warned = true;
       applyLedColor(100, 50, 0, 100); // solid orange — no blink timer
     }
   } else {
+    _battery_low_count = 0;
     _battery_warned = false; // reset once both batteries are above threshold again
   }
 }
