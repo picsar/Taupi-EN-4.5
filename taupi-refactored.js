@@ -1,17 +1,19 @@
-////////////// TAUPI 4.0 @ Shelly //////////////
-// copyright by boeserbob und holzachr
-// Questions to quirb@web.de
-// Documentation and latest versions at https://github.com/BoeserBob/Taupi-4.0
+////////////// TAUPI EN 4.5 @ Shelly //////////////
+// Original concept by BoeserBob and HolzaChr — https://github.com/BoeserBob/Taupi-4.0
+// Documentation and latest versions at https://github.com/picsar/Taupi-EN-4.5
 //
-// This script turns a Shelly Plug into a dewpoint-based ventilation controller.
-// It switches a connected fan via the Shelly's relay based on the dewpoint difference between inside and outside.
-//   - It receives measurement events from BLE sensors.
-//   - When readings arrive from the configured indoor and outdoor sensors, dewpoints are calculated from temperature and humidity.
-//   - A timer loop periodically checks whether all conditions to run the fan are met:
-//         - The fan turns ON if the indoor dewpoint exceeds the outdoor dewpoint by more than the threshold.
-//         - The fan turns OFF if indoor temperature is below the minimum or indoor humidity is below the minimum.
+// This script turns a Shelly Plug S/G3 into a dew point-based ventilation controller.
+// It reads temperature and humidity from two BLE sensors (indoor + outdoor) and switches
+// a connected fan via the Shelly relay based on whether ventilating will dry the room out.
+//   - BLE advertisements from Shelly BLU H&T sensors (BTHome v2) are decoded continuously.
+//   - A timer loop (default: every 10 s) evaluates switching conditions:
+//       Fan ON  — indoor dew point > outdoor dew point + threshold,
+//                 AND indoor temp > minimum, AND indoor humidity > minimum
+//       Fan OFF — any of the above conditions no longer met, or quiet hours active
+//   - Sensor timeouts, low battery, and fan state changes are reported via Telegram and LED.
+//   - Live status (temperatures, dew points, fan state) is written to a virtual Text component.
 //
-// The following lines must be configured — at minimum the MAC addresses for sensor_outside and sensor_inside.
+// Configure the MAC addresses for sensor_outside and sensor_inside at minimum.
 //
 
 //========== Sensor Configuration ==========
